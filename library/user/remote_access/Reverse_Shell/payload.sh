@@ -280,10 +280,10 @@ ssh root@localhost -p $REMOTE_PORT"
 
 	elif [ "$REMOTE_PORT" = "8080" ] && [ "$LOCAL_PORT" = "1471" ]; then
 		LOG blue "Open this URL on remote host"
-		LOG yellow "http://localhost:1471"
+		LOG yellow "http://localhost:8080"
 		PROMPT "REMOTE HOST URL
 
-http://localhost:1471"
+http://localhost:8080"
 	else
 		LOG green "Tunnel active on custom ports"
 	fi
