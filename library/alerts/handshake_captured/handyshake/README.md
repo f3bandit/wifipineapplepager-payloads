@@ -127,6 +127,10 @@ Attempts to identify what type of device the client is based on the vendor name.
 - `Texas Instruments` → `IoT/Smart Home device (Texas Instruments chip)`
 - `Apple` → `Apple device (iPhone/iPad/MacBook/AirPods)`
 - `Samsung` → `Samsung device (Galaxy phone/Smart TV/tablet)`
+- `Hon Hai Precision` / `Foxconn` → `Foxconn-built device (Amazon Echo/Fire TV, Nintendo Switch, Sony PlayStation, Vizio TV)`
+- `Tonly Technology` → `Tonly Technology device (Bluetooth speaker, soundbar, or TCL audio product)`
+- `AltoBeam` → `AltoBeam device (Smart TV, streaming box, or Android TV device)`
+- `Tuya` → `Tuya Smart device (smart home appliance - possibly Fireplace)`
 - And many more (Amazon, Google, Roku, Sonos, Ring, Nest, TP-Link, Belkin, Wyze, Eufy, Arlo, Bose, Sony, Microsoft, Nintendo, Xiaomi, Huawei, Motorola, Lenovo, Dell, HP, Cisco, Aruba, Ubiquiti, Raspberry Pi)
 - If you can think of anything else that I missed! Let me know! @curtthecoder
 
@@ -136,7 +140,8 @@ Only appears in the alert when a match is found. Unknown vendors are silently sk
 Classifies the network type based on AP vendor and SSID keywords:
 - **Business/Enterprise** — AP vendor matches enterprise brands (Cisco, Aruba, Meraki, Ruckus, Aerohive, Fortinet, Juniper)
 - **Likely Business/Public** — SSID contains keywords like `corp`, `office`, `guest`, `hotel`, `cafe`, `shop`, `restaurant`, `inc`, `llc`, `ltd`
-- **Home/Personal** — AP vendor matches consumer router brands (Google, Netgear, Linksys, TP-Link, Asus, Belkin, D-Link, Xfinity, Spectrum, AT&T, Verizon, Comcast, Cox, Eero, Orbi, Synology, Ubiquiti, UniFi)
+- **Home/Personal (ISP gateway)** — SSID matches common ISP patterns (`Verizon_`, `XFINITY`, `Spectrum`, `ATT`, `Optimum`, `Cox`, `MySpectrumWifi`, `MyFiosGateway`)
+- **Home/Personal (consumer router)** — AP vendor matches consumer/ISP router brands (Google, Netgear, Linksys, TP-Link, Asus, Belkin, D-Link, Xfinity, Spectrum, AT&T, Verizon, Comcast, Cox, Eero, Orbi, Synology, Ubiquiti, UniFi, Askey, Sagemcom, Arris, Technicolor, Sercomm)
 - **Unknown** — when no match is found
 
 Logged to the log file with each capture.
