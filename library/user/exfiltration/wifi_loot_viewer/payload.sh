@@ -28,8 +28,8 @@ $RemoteDir = "/mmc/root/loot/wifi/"
 $TempKey   = Join-Path $env:TEMP ("pager_key_" + [guid]::NewGuid().ToString())
 
 # ---- PASTE BASE64 OF YOUR WORKING PRIVATE KEY FILE BELOW ----
-$PrivateKeyB64 = @'<INSERT AUTHORIZED KEY BETWEEN THE "@' '@" No "< >" 
->'@
+$PrivateKeyB64 = @'INSERT AUTHORIZED HERE 
+'@
 
 function Test-CommandExists {
     param([string]$Name)
