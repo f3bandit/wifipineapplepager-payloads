@@ -13,10 +13,10 @@ Description:
 
 Files:
 
-omg_payload = copy and paste into omg cable payload slot
+omg/omg_payload = copy and paste into omg cable payload slot
 
-magic.ps1 = this need to be copied to /mmc/root/scripts on the pager
+magic/magic.ps1 = this needs to be copied to /mmc/root/scripts on the pager
 
-payload.sh = this need to be copied to /mmc/root/payloads/user/exfiltration/wifi_loot_viewer 
+payload.sh = this needs to be copied to /mmc/root/payloads/user/exfiltration/wifi_loot_viewer 
 
 
