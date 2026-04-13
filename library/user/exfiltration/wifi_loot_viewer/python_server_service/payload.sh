@@ -3,10 +3,10 @@
 # ============================================================
 # Name: python_server
 # Author: f3bandit
-# Version: 4.0
+# Version: 4.1
 # ============================================================
 
-SCRIPT_VERSION="4.0"
+SCRIPT_VERSION="4.1"
 
 BASE_DIR="/mmc/root/payloads/user/exfiltration/python_server"
 DEPS_DIR="$BASE_DIR/deps"
@@ -646,29 +646,21 @@ validate_init_script() {
 }
 
 heal_generated_files() {
-    local healed
-    healed=0
-
     if ! validate_python_server_file; then
         write_python_server
-        healed=1
     fi
 
     if ! validate_launcher_file; then
         write_launcher_script
-        healed=1
     fi
 
     if [ -d "/etc/init.d" ] && [ -w "/etc/init.d" ]; then
         if ! validate_init_script; then
             write_init_script
             "$INIT_SCRIPT" enable >/dev/null 2>&1
-            touched_service_state=1
-            healed=1
+            touch "$SERVICE_INSTALL_STATE_FILE"
         fi
     fi
-
-    return "$healed"
 }
 
 bootstrap_or_upgrade() {
@@ -690,7 +682,7 @@ bootstrap_or_upgrade() {
         return 0
     fi
 
-    heal_generated_files >/dev/null 2>&1
+    heal_generated_files
     return 0
 }
 
@@ -731,7 +723,7 @@ server_start() {
     fi
 
     bootstrap_or_upgrade || return 1
-    heal_generated_files >/dev/null 2>&1
+    heal_generated_files
 
     if [ -x "$INIT_SCRIPT" ]; then
         write_init_script
@@ -824,12 +816,11 @@ bool_text() {
 }
 
 debug_status_message() {
-    local bootstrap_ver bootstrap_ok service_ok running pid_text port ip py_ok launcher_ok init_ok log_ok
+    local bootstrap_ver bootstrap_ok service_ok pid_text port ip py_ok launcher_ok init_ok log_ok
 
     bootstrap_ver="$(current_bootstrap_version)"
     [ "$bootstrap_ver" != "none" ] && bootstrap_ok=1 || bootstrap_ok=0
     [ -f "$SERVICE_INSTALL_STATE_FILE" ] && service_ok=1 || service_ok=0
-    server_is_running && running=1 || running=0
 
     if [ -f "$PID_FILE" ]; then
         pid_text="$(cat "$PID_FILE" 2>/dev/null)"
@@ -955,12 +946,10 @@ run_menu() {
                 run_debug_menu
                 ;;
             exit)
-                server_stop >/dev/null 2>&1
                 LOG clear 2>/dev/null || true
                 exit 0
                 ;;
             *)
-                server_stop >/dev/null 2>&1
                 LOG clear 2>/dev/null || true
                 exit 0
                 ;;
