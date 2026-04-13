@@ -3,27 +3,25 @@
 # ============================================================
 # Name: python_server
 # Author: f3bandit
-# Version: 3.0
+# Version: 3.2
 # ============================================================
-
-#!/bin/bash
 
 BASE_DIR="/mmc/root/payloads/user/exfiltration/python_server"
 DEPS_DIR="$BASE_DIR/deps"
 SERVE_DIR="/mmc/root/scripts"
 UPLOAD_DIR="/mmc/root/loot/wifi"
 
-LOG_FILE="/tmp/theme_transfer_server.log"
-PID_FILE="/tmp/theme_transfer_server.pid"
+LOG_FILE="/tmp/python_transfer_server.log"
+PID_FILE="/tmp/python_transfer_server.pid"
 
 PY_SERVER_FILE="$BASE_DIR/upload_server.py"
-LAUNCHER_FILE="$BASE_DIR/theme_transfer_server_launcher.sh"
+LAUNCHER_FILE="$BASE_DIR/python_transfer_server_launcher.sh"
 
 BOOTSTRAP_STATE_FILE="$BASE_DIR/.bootstrap_done"
 SERVICE_INSTALL_STATE_FILE="$BASE_DIR/.service_installed"
 PORT_FILE="$BASE_DIR/.port"
 
-SERVICE_NAME="theme_transfer_server"
+SERVICE_NAME="python_transfer_server"
 INIT_SCRIPT="/etc/init.d/$SERVICE_NAME"
 
 PYTHON_BIN="/mmc/usr/bin/python3"
@@ -82,18 +80,43 @@ get_current_ip() {
     echo "unknown"
 }
 
-show_status_prompt() {
-    local status ip port msg
+server_is_running() {
+    if [ -f "$PID_FILE" ]; then
+        local pid
+        pid="$(cat "$PID_FILE" 2>/dev/null)"
+        [ -n "$pid" ] && kill -0 "$pid" 2>/dev/null
+        return $?
+    fi
+    return 1
+}
+
+server_status() {
+    if server_is_running; then
+        echo "started"
+    else
+        echo "stopped"
+    fi
+}
+
+build_status_message() {
+    local status ip port prefix
+    prefix="$1"
 
     status="$(server_status)"
     ip="$(get_current_ip)"
     port="$(get_http_port)"
 
-    msg="Server status: $status
-IP: $ip
-Port: $port
+    if [ -n "$prefix" ]; then
+        printf "%s\n\nServer status: %s\nIP: %s\nPort: %s\n\nPress any button to continue" \
+            "$prefix" "$status" "$ip" "$port"
+    else
+        printf "Server status: %s\nIP: %s\nPort: %s\n\nPress any button to continue" \
+            "$status" "$ip" "$port"
+    fi
+}
 
-Press any button to continue"
+show_prompt_message() {
+    local msg="$1"
 
     if type PROMPT >/dev/null 2>&1; then
         PROMPT "$msg"
@@ -106,12 +129,12 @@ Press any button to continue"
     fi
 
     if have_cmd whiptail; then
-        whiptail --title "Theme Transfer Server" --msgbox "$msg" 14 60
+        whiptail --title "Python Transfer Server" --msgbox "$msg" 14 60
         return 0
     fi
 
     if have_cmd dialog; then
-        dialog --title "Theme Transfer Server" --msgbox "$msg" 14 60
+        dialog --title "Python Transfer Server" --msgbox "$msg" 14 60
         return 0
     fi
 
@@ -119,20 +142,28 @@ Press any button to continue"
     return 0
 }
 
+show_status_prompt() {
+    local msg
+    msg="$(build_status_message "$1")"
+    show_prompt_message "$msg"
+}
+
 main_menu() {
     local current_port choice
     current_port="$(get_http_port)"
 
     if type LIST_PICKER >/dev/null 2>&1; then
-        choice=$(LIST_PICKER "Theme Transfer Server" \
+        choice=$(LIST_PICKER "Python Transfer Server" \
             "Start server" \
             "Stop server" \
+            "Server status" \
             "Change port ($current_port)" \
             "Exit" \
             "Start server")
         case "$choice" in
             "Start server") echo "start" ;;
             "Stop server") echo "stop" ;;
+            "Server status") echo "status" ;;
             "Change port ($current_port)") echo "change_port" ;;
             *) echo "exit" ;;
         esac
@@ -140,17 +171,19 @@ main_menu() {
     fi
 
     if have_cmd whiptail; then
-        choice=$(whiptail --title "Theme Transfer Server" \
-            --menu "Choose action:" 16 60 4 \
+        choice=$(whiptail --title "Python Transfer Server" \
+            --menu "Choose action:" 18 60 5 \
             "1" "Start server" \
             "2" "Stop server" \
-            "3" "Change port ($current_port)" \
-            "4" "Exit" \
+            "3" "Server status" \
+            "4" "Change port ($current_port)" \
+            "5" "Exit" \
             3>&1 1>&2 2>&3)
         case "$choice" in
             1) echo "start" ;;
             2) echo "stop" ;;
-            3) echo "change_port" ;;
+            3) echo "status" ;;
+            4) echo "change_port" ;;
             *) echo "exit" ;;
         esac
         return
@@ -158,14 +191,16 @@ main_menu() {
 
     echo "1) Start server"
     echo "2) Stop server"
-    echo "3) Change port ($current_port)"
-    echo "4) Exit"
+    echo "3) Server status"
+    echo "4) Change port ($current_port)"
+    echo "5) Exit"
     printf "Choose: "
     read -r choice
     case "$choice" in
         1) echo "start" ;;
         2) echo "stop" ;;
-        3) echo "change_port" ;;
+        3) echo "status" ;;
+        4) echo "change_port" ;;
         *) echo "exit" ;;
     esac
 }
@@ -193,6 +228,42 @@ pick_port_with_number_picker() {
     fi
 
     return 1
+}
+
+port_action_menu() {
+    local candidate="$1"
+    local choice
+
+    if type LIST_PICKER >/dev/null 2>&1; then
+        choice=$(LIST_PICKER "Port $candidate" \
+            "Save port $candidate" \
+            "Edit port" \
+            "Cancel" \
+            "Save port $candidate")
+        case "$choice" in
+            "Save port $candidate") echo "save" ;;
+            "Edit port") echo "edit" ;;
+            *) echo "cancel" ;;
+        esac
+        return
+    fi
+
+    if have_cmd whiptail; then
+        choice=$(whiptail --title "Port $candidate" \
+            --menu "Choose action:" 14 60 3 \
+            "1" "Save port $candidate" \
+            "2" "Edit port" \
+            "3" "Cancel" \
+            3>&1 1>&2 2>&3)
+        case "$choice" in
+            1) echo "save" ;;
+            2) echo "edit" ;;
+            *) echo "cancel" ;;
+        esac
+        return
+    fi
+
+    echo "save"
 }
 
 validate_port() {
@@ -319,8 +390,8 @@ class Handler(http.server.BaseHTTPRequestHandler):
                         items.append(f'<li><a href="/files/{name}">{name}</a></li>')
 
                 self.send_html(
-                    "<html><head><title>Theme Transfer Server</title></head>"
-                    "<body><h2>Theme Transfer Server</h2>"
+                    "<html><head><title>Python Transfer Server</title></head>"
+                    "<body><h2>Python Transfer Server</h2>"
                     f"<p>Port: {PORT}</p>"
                     "<p>Upload with POST to <code>/upload</code> and header <code>X-Filename</code>.</p>"
                     f"<ul>{''.join(items)}</ul>"
@@ -432,19 +503,7 @@ EOF
     chmod 755 "$LAUNCHER_FILE"
 }
 
-install_service_if_possible() {
-    if [ -f "$SERVICE_INSTALL_STATE_FILE" ]; then
-        return 0
-    fi
-
-    write_python_server
-    write_launcher_script
-
-    if [ ! -d "/etc/init.d" ] || [ ! -w "/etc/init.d" ]; then
-        touch "$SERVICE_INSTALL_STATE_FILE"
-        return 0
-    fi
-
+write_init_script() {
 cat > "$INIT_SCRIPT" <<EOF
 #!/bin/sh /etc/rc.common
 
@@ -452,6 +511,7 @@ START=99
 STOP=10
 USE_PROCD=0
 
+NAME="${SERVICE_NAME}"
 PID_FILE="${PID_FILE}"
 LAUNCHER="${LAUNCHER_FILE}"
 
@@ -459,6 +519,7 @@ start() {
     if [ -f "\$PID_FILE" ] && kill -0 "\$(cat "\$PID_FILE" 2>/dev/null)" 2>/dev/null; then
         return 0
     fi
+
     "\$LAUNCHER" &
     sleep 1
 }
@@ -472,31 +533,29 @@ stop() {
         fi
         rm -f "\$PID_FILE"
     fi
+
+    if command -v fuser >/dev/null 2>&1; then
+        fuser -k \$(cat "${PORT_FILE}" 2>/dev/null || echo "${DEFAULT_HTTP_PORT}")/tcp >/dev/null 2>&1
+    fi
 }
 EOF
 
     chmod 755 "$INIT_SCRIPT"
+}
+
+install_service_if_possible() {
+    write_python_server
+    write_launcher_script
+
+    if [ ! -d "/etc/init.d" ] || [ ! -w "/etc/init.d" ]; then
+        touch "$SERVICE_INSTALL_STATE_FILE"
+        return 0
+    fi
+
+    write_init_script
     "$INIT_SCRIPT" enable >/dev/null 2>&1
     touch "$SERVICE_INSTALL_STATE_FILE"
     return 0
-}
-
-server_is_running() {
-    if [ -f "$PID_FILE" ]; then
-        local pid
-        pid="$(cat "$PID_FILE" 2>/dev/null)"
-        [ -n "$pid" ] && kill -0 "$pid" 2>/dev/null
-        return $?
-    fi
-    return 1
-}
-
-server_status() {
-    if server_is_running; then
-        echo "started"
-    else
-        echo "stopped"
-    fi
 }
 
 server_start_manual() {
@@ -526,6 +585,7 @@ server_start() {
     if [ -x "$INIT_SCRIPT" ]; then
         write_python_server
         write_launcher_script
+        write_init_script
         "$INIT_SCRIPT" start >/dev/null 2>&1
         sleep 2
         if server_is_running; then
@@ -537,7 +597,7 @@ server_start() {
 }
 
 server_stop() {
-    local current_port
+    local current_port pid
     current_port="$(get_http_port)"
 
     if [ -x "$INIT_SCRIPT" ]; then
@@ -545,7 +605,6 @@ server_stop() {
     fi
 
     if server_is_running; then
-        local pid
         pid="$(cat "$PID_FILE" 2>/dev/null)"
         kill "$pid" 2>/dev/null
         sleep 1
@@ -563,32 +622,45 @@ server_stop() {
 }
 
 change_port() {
-    local current_port new_port was_running
-
+    local current_port candidate_port port_choice changed
     current_port="$(get_http_port)"
-    new_port="$(pick_port_with_number_picker "$current_port")" || return 0
+    candidate_port="$current_port"
+    changed=0
 
-    if ! validate_port "$new_port"; then
-        show_status_prompt
-        return 0
+    while true; do
+        candidate_port="$(pick_port_with_number_picker "$candidate_port")" || return 0
+
+        if ! validate_port "$candidate_port"; then
+            show_prompt_message "Invalid port.\n\nEnter a value from 1 to 65535."
+            continue
+        fi
+
+        port_choice="$(port_action_menu "$candidate_port")"
+
+        case "$port_choice" in
+            save)
+                server_stop >/dev/null 2>&1
+                set_http_port "$candidate_port"
+                write_python_server
+                write_launcher_script
+                write_init_script
+                server_start >/dev/null 2>&1
+                changed=1
+                break
+                ;;
+            edit)
+                continue
+                ;;
+            cancel|*)
+                return 0
+                ;;
+        esac
+    done
+
+    if [ "$changed" -eq 1 ]; then
+        show_status_prompt "Port updated"
     fi
 
-    if server_is_running; then
-        was_running=1
-        server_stop >/dev/null 2>&1
-    else
-        was_running=0
-    fi
-
-    set_http_port "$new_port"
-    write_python_server
-    write_launcher_script
-
-    if [ "$was_running" -eq 1 ]; then
-        server_start >/dev/null 2>&1
-    fi
-
-    show_status_prompt
     return 0
 }
 
@@ -607,16 +679,19 @@ run_menu() {
                 server_stop >/dev/null 2>&1
                 show_status_prompt
                 ;;
+            status)
+                show_status_prompt
+                ;;
             change_port)
                 change_port
                 ;;
             exit)
-                show_status_prompt
+                server_stop >/dev/null 2>&1
                 LOG clear 2>/dev/null || true
                 exit 0
                 ;;
             *)
-                show_status_prompt
+                server_stop >/dev/null 2>&1
                 LOG clear 2>/dev/null || true
                 exit 0
                 ;;
